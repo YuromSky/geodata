@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Чистит список IP для сплита и собирает geoip.dat для Happ/Xray.
+"""Чистит список IP для сплита и собирает облегчённые geoip.dat и geosite.dat для Happ/Xray.
 
-Берёт geoip.dat от runetfreedom и дописывает в него категорию FRIEND
-(очищенный список друга), чтобы в клиенте был один файл с geoip:ru-blocked,
-geoip:cloudflare и geoip:friend.
+Из файлов runetfreedom (18 и 73 МБ) оставляются только категории, которые используют
+правила сплита, и в geoip.dat дописывается категория FRIEND (очищенный список друга).
+Happ скачивает geo-файлы с ограничением в 3 минуты, поэтому размер важен.
 
 Очистка:
   - убираются зарезервированные сети (CGNAT, документационные и т.п.);
@@ -23,6 +23,14 @@ import urllib.request
 from pathlib import Path
 
 GEOIP_URL = "https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/release/geoip.dat"
+GEOSITE_URL = "https://raw.githubusercontent.com/runetfreedom/russia-v2ray-rules-dat/release/geosite.dat"
+GEOIP_KEEP = {"PRIVATE", "RU", "RU-BLOCKED", "CLOUDFLARE", "TELEGRAM"}
+GEOSITE_KEEP = {
+    "PRIVATE", "RU-BLOCKED", "CATEGORY-RU", "RU-AVAILABLE-ONLY-INSIDE", "TELEGRAM",
+    # сервисы, которые сами не пускают пользователей из РФ
+    "CATEGORY-AI-!CN", "SPOTIFY", "NOTION", "CANVA", "INTEL", "NVIDIA", "JETBRAINS",
+    "AUTODESK", "CURSOR", "WINDSURF",
+}
 AWS_URL = "https://ip-ranges.amazonaws.com/ip-ranges.json"
 MIN_PREFIX = 16
 CATEGORY = "FRIEND"
@@ -101,6 +109,20 @@ def geoip_categories(dat, wanted):
     return result
 
 
+def keep_categories(dat, keep):
+    """Копирует из .dat только записи нужных категорий (код категории — первое поле записи)."""
+    out, found = bytearray(), set()
+    for _, entry in pb_fields(dat):
+        _, code = next(pb_fields(entry))
+        if code.decode() in keep:
+            out += pb_bytes(1, entry)
+            found.add(code.decode())
+    missing = keep - found
+    if missing:
+        sys.exit(f"в исходном файле нет категорий: {', '.join(sorted(missing))}")
+    return bytes(out)
+
+
 def encode_category(code, nets):
     body = pb_bytes(1, code.encode())
     for n in nets:
@@ -164,6 +186,7 @@ def main():
     cache.mkdir(parents=True, exist_ok=True)
 
     dat = fetch(GEOIP_URL, cache / "runetfreedom-geoip.dat").read_bytes()
+    geosite = fetch(GEOSITE_URL, cache / "runetfreedom-geosite.dat").read_bytes()
     aws_json = json.loads(fetch(AWS_URL, cache / "aws-ip-ranges.json").read_text())
 
     cats = geoip_categories(dat, {"RU", "RU-BLOCKED", "CLOUDFLARE"})
@@ -204,7 +227,10 @@ def main():
 
     (out / "friend.txt").write_text("".join(f"{n}\n" for n in friend))
     (out / "dropped-wide.txt").write_text("".join(f"{n}\n" for n in sorted(dropped)))
-    (out / "geoip.dat").write_bytes(dat + encode_category(CATEGORY, friend))
+    geoip_out = keep_categories(dat, GEOIP_KEEP) + encode_category(CATEGORY, friend)
+    geosite_out = keep_categories(geosite, GEOSITE_KEEP)
+    (out / "geoip.dat").write_bytes(geoip_out)
+    (out / "geosite.dat").write_bytes(geosite_out)
 
     report = [
         f"Исходный список: {len(source)} записей, {size(ipaddress.collapse_addresses(source)):,} адресов "
@@ -218,6 +244,8 @@ def main():
         f"  из них подсетей AWS: {aws_left}",
         f"  целиком уже есть в geoip:ru-blocked: {in_blocked}",
         f"  пересекаются с geoip:cloudflare: {in_cf}",
+        f"geoip.dat: {len(geoip_out):,} байт ({', '.join(sorted(GEOIP_KEEP | {CATEGORY}))})",
+        f"geosite.dat: {len(geosite_out):,} байт ({', '.join(sorted(GEOSITE_KEEP))})",
     ]
     (out / "report.txt").write_text("\n".join(report) + "\n")
     print("\n".join(report))

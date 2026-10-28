@@ -26,16 +26,17 @@ jobs:
 
       - name: Sanity check
         run: |
-          size=$(stat -c %s out/geoip.dat)
-          echo "geoip.dat: $size bytes"
-          test "$size" -gt 5000000
+          for f in geoip.dat geosite.dat; do
+            size=$(stat -c %s out/$f); echo "$f: $size bytes"
+            test "$size" -gt 500000
+          done
           grep -q "Итог geoip:friend" out/report.txt
 
       - name: Publish to release branch
         env:
           TOKEN: ${{ github.token }}
         run: |
-          mkdir publish && cp out/geoip.dat out/friend.txt out/report.txt publish/
+          mkdir publish && cp out/geoip.dat out/geosite.dat out/friend.txt out/report.txt publish/
           cd publish
           git init -q -b release
           git config user.name "github-actions[bot]"
