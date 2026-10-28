@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Чистит список IP для сплита и собирает облегчённые geoip.dat и geosite.dat для Happ/Xray.
 
-Из файлов runetfreedom (18 и 73 МБ) оставляются только категории, которые используют
-правила сплита, и в geoip.dat дописывается категория FRIEND (очищенный список друга).
-Happ скачивает geo-файлы с ограничением в 3 минуты, поэтому размер важен.
+Две версии:
+  out/geoip.dat, out/geosite.dat — облегчённые, для телефонов: из файлов runetfreedom (18 и 73 МБ)
+      оставлены только категории, которые используют правила сплита (Happ качает geo-файлы
+      с ограничением в 3 минуты);
+  out/full/geoip.dat — полный geoip.dat runetfreedom, для компьютеров (geosite для них берётся
+      напрямую у runetfreedom).
+В оба geoip.dat дописывается категория FRIEND (очищенный список друга).
 
 Очистка:
   - убираются зарезервированные сети (CGNAT, документационные и т.п.);
@@ -229,8 +233,11 @@ def main():
     (out / "dropped-wide.txt").write_text("".join(f"{n}\n" for n in sorted(dropped)))
     geoip_out = keep_categories(dat, GEOIP_KEEP) + encode_category(CATEGORY, friend)
     geosite_out = keep_categories(geosite, GEOSITE_KEEP)
+    full_geoip_out = dat + encode_category(CATEGORY, friend)
     (out / "geoip.dat").write_bytes(geoip_out)
     (out / "geosite.dat").write_bytes(geosite_out)
+    (out / "full").mkdir(exist_ok=True)
+    (out / "full" / "geoip.dat").write_bytes(full_geoip_out)
 
     report = [
         f"Исходный список: {len(source)} записей, {size(ipaddress.collapse_addresses(source)):,} адресов "
@@ -246,6 +253,7 @@ def main():
         f"  пересекаются с geoip:cloudflare: {in_cf}",
         f"geoip.dat: {len(geoip_out):,} байт ({', '.join(sorted(GEOIP_KEEP | {CATEGORY}))})",
         f"geosite.dat: {len(geosite_out):,} байт ({', '.join(sorted(GEOSITE_KEEP))})",
+        f"full/geoip.dat: {len(full_geoip_out):,} байт (все категории runetfreedom + {CATEGORY})",
     ]
     (out / "report.txt").write_text("\n".join(report) + "\n")
     print("\n".join(report))
