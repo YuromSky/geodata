@@ -1,0 +1,12 @@
+Исходный список: 3102 записей, 1,066,373,196 адресов (24.83% IPv4)
+Зарезервированные сети убраны: 8 (100.82.0.0/16, 100.85.59.120/32, 100.95.7.33/32, 100.97.162.3/32, 100.97.54.188/32, 100.97.95.9/32, 192.0.2.0/24, 198.51.100.0/24)
+Широкие (< /16) не-AWS записи убраны: 388 (см. dropped-wide.txt)
+Широкие записи с AWS обрезаны до подсетей AWS: 124
+Вычтено российских адресов (geoip:ru): 281,398
+Итог geoip:friend: 3472 подсетей, 90,304,935 адресов (2.10% IPv4)
+  из них подсетей AWS: 1089
+  целиком уже есть в geoip:ru-blocked: 47
+  пересекаются с geoip:cloudflare: 25
+geoip.dat: 1,327,708 байт (CLOUDFLARE, FRIEND, PRIVATE, RU, RU-BLOCKED, TELEGRAM)
+geosite.dat: 1,637,607 байт (AUTODESK, CANVA, CATEGORY-AI-!CN, CATEGORY-RU, CURSOR, INTEL, JETBRAINS, NOTION, NVIDIA, PRIVATE, RU-AVAILABLE-ONLY-INSIDE, RU-BLOCKED, SPOTIFY, TELEGRAM, WINDSURF)
+full/geoip.dat: 18,035,661 байт (все категории runetfreedom + FRIEND)
